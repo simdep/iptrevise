@@ -29,78 +29,78 @@ use Symfony\Component\Validator\Constraints\Regex;
 */
 class LoadSite extends AbstractLoader
 {
-  /**
-  * Configure the command.
-  */
-  protected function configure()
-  {
-    $this
-    // the name of the command (the part after "bin/console")
-    ->setName('app:load:site')
-    // the short description shown while running "php bin/console list"
-    ->setDescription('Charge en base le contenu des fichiers téléchargées .')
-    // the full command description shown when running the command with
-    // the "--help" option
-    ->setHelp('Cette commande charge en base le contenu des fichiers téléchargés.')
-    ;
-  }
-
-  /**
-  * Transform line into entity and save it.
-  *
-  * @param array $ligne
-  * @return ConstraintViolationList
-  */
-  function validateEntity(array $ligne): ConstraintViolationList
-  {
-    $validator = Validation::createValidator();
-    $violations = new ConstraintViolationList();
-    $violations->addAll(
-      $validator->validate($ligne[0],
-      [
-        new Length(['max' => 32]),
-        new NotBlank(),
-      ]
-      )
-    );
-    $violations->addAll(
-      $validator->validate(
-        $ligne[1],
-        [
-          new regex([
-            'pattern' => '/^([0-9a-f]{3}|[0-9a-f]{6})$/i',
-            'message' => 'form.site.error.color.pattern'
-          ]), //message dans validator.fr.yml
-          new NotBlank(),
-        ]
-        )
-      );
-
-      return $violations;
+    /**
+    * Configure the command.
+    */
+    protected function configure()
+    {
+        $this
+        // the name of the command (the part after "bin/console")
+        ->setName('app:load:site')
+        // the short description shown while running "php bin/console list"
+        ->setDescription('Charge en base le contenu des fichiers téléchargées .')
+        // the full command description shown when running the command with
+        // the "--help" option
+        ->setHelp('Cette commande charge en base le contenu des fichiers téléchargés.')
+        ;
     }
 
     /**
     * Transform line into entity and save it.
     *
     * @param array $ligne
-    * @return InformationInterface
+    * @return ConstraintViolationList
     */
-    function loadEntity(array $ligne): InformationInterface
+    function validateEntity(array $ligne): ConstraintViolationList
     {
-      $site = new Site();
-      $site->setColor($ligne[1]);
-      $site->setLabel($ligne[0]);
+        $validator = Validation::createValidator();
+        $violations = new ConstraintViolationList();
+        $violations->addAll(
+            $validator->validate($ligne[0],
+            [
+                new Length(['max' => 32]),
+                new NotBlank(),
+            ]
+            )
+        );
+        $violations->addAll(
+            $validator->validate(
+                $ligne[1],
+                [
+                    new regex([
+                        'pattern' => '/^([0-9a-f]{3}|[0-9a-f]{6})$/i',
+                        'message' => 'form.site.error.color.pattern'
+                    ]), //message dans validator.fr.yml
+                    new NotBlank(),
+                ]
+                )
+            );
 
-      return $site;
-    }
+            return $violations;
+        }
 
-    /**
-    * Return the name of the file (site, ip, machine, etc.).
-    *
-    * @return string
-    */
-    function getFilename(): string
-    {
-      return __DIR__ . '/../../data/site.csv';
+        /**
+        * Transform line into entity and save it.
+        *
+        * @param array $ligne
+        * @return InformationInterface
+        */
+        function loadEntity(array $ligne): InformationInterface
+        {
+            $site = new Site();
+            $site->setColor($ligne[1]);
+            $site->setLabel($ligne[0]);
+
+            return $site;
+        }
+
+        /**
+        * Return the name of the file (site, ip, machine, etc.).
+        *
+        * @return string
+        */
+        function getFilename(): string
+        {
+            return __DIR__ . '/../../data/site.csv';
+        }
     }
-  }

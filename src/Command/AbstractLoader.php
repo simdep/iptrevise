@@ -20,167 +20,184 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Translation\TranslatorInterface;
 use Symfony\Component\Validator\ConstraintViolationList;
 
+use App\Entity\User;
+use Doctrine\Common\Persistence\ObjectManager;
+
+
+
 abstract class AbstractLoader extends Command
 {
-  /**
-  * Entity manager.
-  *
-  * @var EntityManagerInterface
-  */
-  protected $entityManager;
+    /**
+    * Entity manager.
+    *
+    * @var EntityManagerInterface
+    */
+    protected $entityManager;
 
-  /**
-  * Translator.
-  *
-  * @var TranslatorInterface
-  */
-  protected $translator;
+    /**
+    * Object manager.
+    *
+    * @var ObjectManager
+    */
+    protected $objectManager;
 
-  /**
-  * DownloadCommand constructor.
-  *
-  * @param EntityManagerInterface $entityManager
-  * @param TranslatorInterface $translator
-  */
-  public function __construct(EntityManagerInterface $entityManager, TranslatorInterface $translator)
-  {
-    parent::__construct();
+    /**
+    * Translator.
+    *
+    * @var TranslatorInterface
+    */
+    protected $translator;
 
-    $this->entityManager = $entityManager;
-    $this->translator = $translator;
-  }
+    /**
+    * DownloadCommand constructor.
+    *
+    * @param ObjectManager
+    * @param EntityManagerInterface $entityManager
+    * @param TranslatorInterface $translator
+    */
+    public function __construct(ObjectManager $objectManager, EntityManagerInterface $entityManager, TranslatorInterface $translator)
+    {
+        parent::__construct();
 
-  /**
-  * Execute the command.
-  *
-  * @param InputInterface $input
-  * @param OutputInterface $output
-  *
-  * @return int|null
-  *
-  * @throws \Exception
-  */
-  protected function execute(InputInterface $input, OutputInterface $output): ?int
-  {
-    $sansErreur = true;
-    $nEntity = 0;
-    $filename = basename($this->getFilename());
-    $output->writeln([
-      '<info>' . $this->translator->trans('command.loader-launched') . '</info>',
-      '<info>' . $this->translator->trans('command.reading-file %filename%', ['%filename%' => $filename]) . '</info>',
-    ]);
-
-    $fileInfo = new \SplFileInfo($this->getFilename());
-
-    if (!($fileInfo->isFile())) {
-
-      $output->writeln(
-        '<error>'
-        . $this->translator->trans('command.missing-file %filename%', ['%filename%' => $this->getFilename()])
-        . '</error>');
-        return 2;
-    } elseif (!($fileInfo->isReadable())) {
-      $output->writeln(
-        '<error>'
-        . $this->translator->trans('command.unreadable-file %filename%', ['%filename%' => $this->getFilename()])
-        . '</error>');
-        return 3;
+        $this->entityManager = $entityManager;
+        $this->translator = $translator;
+        $this->objectManager = $objectManager;
     }
 
-    $fd = fopen($this->getFilename(), 'r');
+    /**
+    * Execute the command.
+    *
+    * @param InputInterface $input
+    * @param OutputInterface $output
+    *
+    * @return int|null
+    *
+    * @throws \Exception
+    */
+    protected function execute(InputInterface $input, OutputInterface $output): ?int
+    {
+        $sansErreur = true;
+        $siteRepository = $this->entityManager->getRepository('App:User');
+        $nEntity = 0;
+        $filename = basename($this->getFilename());
+        $output->writeln([
+            '<info>' . $this->translator->trans('command.loader-launched') . '</info>',
+            '<info>' . $this->translator->trans('command.reading-file %filename%', ['%filename%' => $filename]) . '</info>',
+        ]);
 
-    $nligne = 1;
-    if (!$fd) {
-      $output->writeln(
-        '<error>'
-        . $this->translator->trans('command.missing-file %filename%', ['%filename%' => $this->getFilename()])
-        . '</error>');
+        $fileInfo = new \SplFileInfo($this->getFilename());
 
-        return 2;
-    }
-    $this->entityManager->beginTransaction();
-    while (!feof($fd)) {
-      $ligne = fgetcsv($fd, null, ',');
-      if (!empty($ligne[0])) {
-        $violations = $this->validateEntity($ligne);
-        foreach ($violations as $violation) {
-          $output->writeln(
-            '<error>'
-            . $this->translator->trans('command.error.line %line% %error%', [
-              '%line%' => $nligne,
-              '%error%' => $this->translator->trans($violation->getMessage(), [], 'validators')
-            ])
-            . '</error>'
-          );
-          $sansErreur = false;
-        }
-        if ($sansErreur) {
-          $entity = $this->loadEntity($ligne);
-          //TODO Ajouter un créateur, on pourrait créer un utilisateur bidon qui n'a aucun droit de connexion
-          //Cela permettrait de voir dans les journaux de bord qu'ils ont été créés par l'importateur de données.
-          //$creator = ????;
-          //$entity->setCreator($creator);
+        if (!($fileInfo->isFile())) {
 
-          $this->entityManager->persist($entity);
-          $nEntity++;
-        }
-        ++$nligne;
-      }
-    }
-    //Closing file
-    fclose($fd);
+            $output->writeln(
+                '<error>'
+                . $this->translator->trans('command.missing-file %filename%', ['%filename%' => $this->getFilename()])
+                . '</error>');
+                return 2;
+            } elseif (!($fileInfo->isReadable())) {
+                $output->writeln(
+                    '<error>'
+                    . $this->translator->trans('command.unreadable-file %filename%', ['%filename%' => $this->getFilename()])
+                    . '</error>');
+                    return 3;
+                }
 
-    $this->entityManager->flush();
+                $fd = fopen($this->getFilename(), 'r');
 
-    $output->writeln("\n");
+                $nligne = 1;
+                if (!$fd) {
+                    $output->writeln(
+                        '<error>'
+                        . $this->translator->trans('command.missing-file %filename%', ['%filename%' => $this->getFilename()])
+                        . '</error>');
 
-    if ($sansErreur) {
-      $this->entityManager->commit();
-      $output->writeln(
-        '<info>'
-        . $this->translator->trans('command.transaction.valid')
-        . $this->translator->trans('command.transaction.entity-number %nEntity% %name%', [
-          '%nEntity%' => $nEntity,
-          '%name%' => basename($this->getFilename(),'.csv')
-        ])
-        . '</info>');
-    } else {
+                        return 2;
+                    }
+                    $this->entityManager->beginTransaction();
+                    while (!feof($fd)) {
+                        $ligne = fgetcsv($fd, null, ',');
+                        if (!empty($ligne[0])) {
+                            $violations = $this->validateEntity($ligne);
+                            foreach ($violations as $violation) {
+                                $output->writeln(
+                                    '<error>'
+                                    . $this->translator->trans('command.error.line %line% %error%', [
+                                        '%line%' => $nligne,
+                                        '%error%' => $this->translator->trans($violation->getMessage(), [], 'validators')
+                                    ])
+                                    . '</error>'
+                                );
+                                $sansErreur = false;
+                            }
+                            if ($sansErreur) {
+                                $entity = $this->loadEntity($ligne);
+                                //TODO Ajouter un créateur, on pourrait créer un utilisateur bidon qui n'a aucun droit de connexion
+                                //Cela permettrait de voir dans les journaux de bord qu'ils ont été créés par l'importateur de données.
+                                //$creator = ????;
+                                //$entity->setCreator($creator);
+                                //Done
+                                $userLoader = $siteRepository->findOneBy(['label' => 'Loader']);
+                                $entity->setCreator($userLoader);
+                                $this->entityManager->persist($entity);
+                                $nEntity++;
+                            }
+                            ++$nligne;
+                        }
+                    }
+                    //Closing file
+                    fclose($fd);
 
-      $this->entityManager->rollback();
-      $output->writeln(
-        '<error>'
-        . $this->translator->trans('command.transaction.invalid')
-        . '</error>');
-    }
-    $output->writeln(
-      '<info>'
-      . $this->translator->trans('command.loader-finished')
-      . '<info>'
-    );
+                    $this->entityManager->flush();
 
-    return $sansErreur ? 0 : 1;
-  }
+                    $output->writeln("\n");
 
-  /**
-  * Return the name of the file (site, ip, machine, etc.).
-  *
-  * @return string
-  */
-  abstract function getFilename(): string;
+                    if ($sansErreur) {
+                        $this->entityManager->commit();
+                        $output->writeln(
+                            '<info>'
+                            . $this->translator->trans('command.transaction.valid')
+                            . $this->translator->trans('command.transaction.entity-number %nEntity% %name%', [
+                                '%nEntity%' => $nEntity,
+                                '%name%' => basename($this->getFilename(),'.csv')
+                            ])
+                            . '</info>');
+                        } else {
 
-  /**
-  * ConstraintViolationList.
-  *
-  * @param array $ligne
-  * @return ConstraintViolationList
-  */
-  abstract function validateEntity(array $ligne): ConstraintViolationList;
+                            $this->entityManager->rollback();
+                            $output->writeln(
+                                '<error>'
+                                . $this->translator->trans('command.transaction.invalid')
+                                . '</error>');
+                            }
+                            $output->writeln(
+                                '<info>'
+                                . $this->translator->trans('command.loader-finished')
+                                . '<info>'
+                            );
 
-  /**
-  * Transform line into abstract entity and save it.
-  *
-  * @param array $ligne
-  * @return InformationInterface
-  */
-  abstract function loadEntity(array $ligne): InformationInterface;
-}
+                            return $sansErreur ? 0 : 1;
+                        }
+
+                        /**
+                        * Return the name of the file (site, ip, machine, etc.).
+                        *
+                        * @return string
+                        */
+                        abstract function getFilename(): string;
+
+                        /**
+                        * ConstraintViolationList.
+                        *
+                        * @param array $ligne
+                        * @return ConstraintViolationList
+                        */
+                        abstract function validateEntity(array $ligne): ConstraintViolationList;
+
+                        /**
+                        * Transform line into abstract entity and save it.
+                        *
+                        * @param array $ligne
+                        * @return InformationInterface
+                        */
+                        abstract function loadEntity(array $ligne): InformationInterface;
+                    }

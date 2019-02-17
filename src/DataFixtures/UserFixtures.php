@@ -1,19 +1,19 @@
 <?php
 /**
- * This file is part of the IP-Trevise Application.
- *
- * PHP version 7.1
- *
- * (c) Alexandre Tranchant <alexandre.tranchant@gmail.com>
- *
- * @category Entity
- *
- * @author    Alexandre Tranchant <alexandre.tranchant@gmail.com>
- * @copyright 2017 Cerema
- * @license   CeCILL-B V1
- *
- * @see       http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.txt
- */
+* This file is part of the IP-Trevise Application.
+*
+* PHP version 7.1
+*
+* (c) Alexandre Tranchant <alexandre.tranchant@gmail.com>
+*
+* @category Entity
+*
+* @author    Alexandre Tranchant <alexandre.tranchant@gmail.com>
+* @copyright 2017 Cerema
+* @license   CeCILL-B V1
+*
+* @see       http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.txt
+*/
 
 namespace App\DataFixtures;
 
@@ -22,23 +22,31 @@ use Doctrine\Common\Persistence\ObjectManager;
 use App\Entity\User;
 
 /**
- * LoadUserData class.
- *
- * @category DataFixtures
- *
- * @author  Alexandre Tranchant <alexandre.tranchant@gmail.com>
- * @license CeCILL-B V1
- */
+* LoadUserData class.
+*
+* @category DataFixtures
+*
+* @author  Alexandre Tranchant <alexandre.tranchant@gmail.com>
+* @license CeCILL-B V1
+*/
 class UserFixtures extends Fixture
 {
     /**
-     * Load Data.
-     *
-     * @param ObjectManager $manager
-     */
+    * Load Data.
+    *
+    * @param ObjectManager $manager
+    */
     public function load(ObjectManager $manager)
     {
         $roleAdmin = ['ROLE_ADMIN'];
+
+        $userLoader = new User();
+        $userLoader->setLabel('Loader');
+        $userLoader->setMail('loader@example.org');
+        $userLoader->setPlainPassword('loader');
+        //$userLoader->setRoles($roleReader);
+        $this->addReference('user_loader', $userLoader);
+        $manager->persist($userLoader);
 
         if (in_array($this->container->get('kernel')->getEnvironment(), ['dev', 'test'])) {
             //Load dev and test data
